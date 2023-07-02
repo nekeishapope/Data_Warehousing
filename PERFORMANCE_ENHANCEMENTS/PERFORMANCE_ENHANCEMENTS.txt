@@ -1,0 +1,137 @@
+5) BITMAP INDEX
+Bit map index is used to enhance query performance in data warehouse.  I used bitmap index on the gender column in the customer dimension table because there are only two different unique values in that column(low cardinality).  
+ 
+ 
+ 
+
+1). Data Partition
+Data partition – Data partition is dividing large tables into smaller independent tables that can be manage separately.  As a result, data maintenance can be done on the individual partition rather than the entire table. I partition sales fact table into four separate table based on each quarter I used the time the item was scan to determine the quarter.  Data partition improves query performance, scalability and security.
+
+create partition function [SALESFACT_PARTITION] (DATE)
+AS RANGE LEFT FOR VALUES
+(
+--'Q1','Q2','Q3','Q4',[PRIMARY]
+	'2020-03-31', '2020-06-30', '2020-09-30', '2020-12-31'
+);
+
+ALTER DATABASE [retailStoreDB] ADD FILEGROUP[Q1]
+ALTER DATABASE [retailStoreDB] ADD FILEGROUP[Q2]
+ALTER DATABASE [retailStoreDB] ADD FILEGROUP[Q3]
+ALTER DATABASE [retailStoreDB] ADD FILEGROUP[Q4]
+
+ALTER DATABASE [retailStoreDB] ADD FILE 
+(NAME = N'Q1_2020', 
+FILENAME =N'C:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\DATA\Q1_2020.ndf', 
+SIZE = 4096kb, 
+filegrowth = 1024kb) 
+to filegroup [Q1]
+ALTER DATABASE [retailStoreDB] ADD FILE 
+(NAME = N'Q2_2020', 
+FILENAME =N'C:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\DATA\Q2_2020.ndf',
+SIZE = 4096kb, filegrowth = 1024kb) to filegroup [Q2]
+ALTER DATABASE [retailStoreDB] ADD FILE 
+(NAME = N'Q3_2020', 
+FILENAME =N'C:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\DATA\Q3_2020.ndf', 
+SIZE = 4096kb, filegrowth = 1024kb) to filegroup [Q3]
+ALTER DATABASE [retailStoreDB] ADD FILE 
+(NAME = N'Q4_2020', 
+FILENAME =N'C:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\DATA\Q4_2020.ndf', 
+SIZE = 4096kb, filegrowth = 1024kb) to filegroup [Q4]
+
+CREATE PARTITION SCHEME PARTITIONSCHEME AS PARTITION SALESFACT_PARTITION 
+TO ([Q1], [Q2], [Q3], [Q4],[primary]);
+
+drop table if exists PARTITIONTABLE
+CREATE TABLE PARTITIONTABLE  --create new table to partition 
+(
+	ID INT,
+	PRODUCT_KEY INT,
+	PROMOTION_KEY INT,
+	PAYMENT_KEY INT,
+	DATE_ID INT,
+	STORE_ID INT,
+	EMPLOYEE_ID INT,
+	CUSTOMER_ID INT,
+	AGE_ID INT,
+	PURCHASE_TRANSACTION_ID VARCHAR(50) not null,
+	CUSTOMER_NAME VARCHAR(20) not null,
+	GENDER varchar(15) not null,
+	ITEM_SCAN_TIMESTAMP DATE,
+	TOTAL_UNIT_SOLD INT not null,
+	DOLLAR_AMOUNT DECIMAL(10, 2) not null,
+	VOLUME INT not null ,
+	REVENUE DECIMAL(10, 2) not null,
+	PROFIT DECIMAL(10, 2) not null,
+	TAX_DOLLAR_AMOUNT DECIMAL(10,2) NOT NULL,
+	PROMOTION_DOLLAR_AMOUNT DECIMAL(8, 3)
+)ON PARTITIONSCHEME(ITEM_SCAN_TIMESTAMP)
+
+insert into PARTITIONTABLE     --insert into new table from old table and archive the old table 
+select * from dbw.SALES_FACT
+
+select partition_id, object_id, partition_number, rows
+from sys.partitions
+where object_id = OBJECT_ID('PARTITIONTABLE')
+ 
+ 
+ 
+ 
+ 
+
+
+
+1.1). Data clustering 
+Data clustering - allows data in a table to be sorted in ascending order.  I used a clustered index on partitiontable which sorts the item_scan_timestamp column.
+Data clustering is used to improve efficiency in data warehousing
+*Part of partition table
+ 
+2). Summary Table
+Summary Table - Summary table is used for storing data that is aggregated or join.  The data 				      that is stored in the summery table is data that is used often against a fact 				      table.  I used a summery table to store the(facts) in the fact table total units 				      sold, the dollar amount, sale volume, sales revenue, profit and the fiscal 				      quarter.  The summary table will improve the performance of the business 				     query.  
+DROP TABLE IF EXISTS SALES_SUMMARY_TABLE
+create table SALES_SUMMARY_TABLE
+(
+	TOTAL_UNIT_SOLD INT,
+	SALES_AMOUNT DECIMAL(10,2),
+	VOLUME INT,
+	REVENUE DECIMAL(10, 2),
+	PROFIT DECIMAL(10, 2),
+	[QUARTER] VARCHAR(3)
+)
+INSERT INTO DBW.SALES_SUMMARY_TABLE
+select SUM(S.TOTAL_UNIT_SOLD) AS "TOTAL UNIT SOLD", SUM(S.DOLLAR_AMOUNT) AS "SALE DOLLAR AMOUNT", 
+		SUM(S.VOLUME) AS "SALES VOLUME", SUM(S.REVENUE) AS "SALES REVENUE", SUM(S.PROFIT) "SALES PROFIT", D.FISCAL_QUARTER
+from dbw.sales_fact S
+JOIN DBW.DATE_DIM D 
+ON(S.DATE_ID = D.DATEID)
+GROUP BY D.FISCAL_QUARTER;
+ 
+3). Referential integrity check
+Referential integrity check – Checks the accuracy of data within the relationship. Check constraint				         places data value restriction on the contents that is coming into the				         column.  I used check constraint to ensure that the data that is extracted				          from the ETL process is data only from Ontario.				         
+Check constraint is used for performance and data quality in data warehousing.  
+Performance- reduce storage or space by not excepting useless data.
+Data quality – data meets the requirements.
+ 
+4). Merge table
+Merge tables – merge table allows two tables to join together making one single table.  I merged the 			female and male baby names together so the query will be against one table instead of 			join both tables in the select statement. Merge tables increase query speed because no 			joining of table.
+ 
+
+ 
+ 
+5). Materialize views(oracle) or an index view (SQL Server)
+Materialize views(oracle) or an index view (SQL Server) is a database object that hold the results of a complex query which is physically stored in the database.  Materialized views can be periodically updated when changes occur from the base table, whereas, a table can not be update periodically.  I used a materialized view to store the employee’s current pay rate which includes a 5% raise.
+Materialize views is used to improve queries performance with joins or pre-calculate aggregating function like (SUM, COUNT, AVG) and store the results in the database.
+drop view DBW.UPATE_SALARY_VIEW
+CREATE VIEW DBW.UPATE_SALARY_VIEW
+with schemabinding 
+as
+SELECT EMPLOYEE_ID, EMPLOYEE_LNAME, EMPLOYEE_FNAME, EMPLOYEE_TITLE, 
+SUM(COMMISSION_PCT * 0.05) AS NEW_COMMISSION,
+COUNT_BIG(*) AS COUNT
+FROM DBW.EMPLOYEES_DIM
+GROUP BY EMPLOYEE_TITLE, EMPLOYEE_FNAME, EMPLOYEE_LNAME,EMPLOYEE_ID
+
+create unique clustered index UPATE_SALARY_INDEX
+on DBW.UPATE_SALARY_VIEW(EMPLOYEE_ID)
+ 
+
+ 
