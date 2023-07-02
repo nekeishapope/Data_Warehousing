@@ -1,8 +1,15 @@
 5) BITMAP INDEX
 Bit map index is used to enhance query performance in data warehouse.  I used bitmap index on the gender column in the customer dimension table because there are only two different unique values in that column(low cardinality).  
  
- 
- 
+CREATE BITMAP INDEX CUS_GENDER
+ON CUSTOMER_DIM(GENDER);
+
+SELECT 
+	PLAN_TABLE_OUTPUT
+FROM 
+	TABLE(DBMS_XPLAN.DISPLAY())
+
+
 
 1). Data Partition
 Data partition – Data partition is dividing large tables into smaller independent tables that can be manage separately.  As a result, data maintenance can be done on the individual partition rather than the entire table. I partition sales fact table into four separate table based on each quarter I used the time the item was scan to determine the quarter.  Data partition improves query performance, scalability and security.
