@@ -1,0 +1,192 @@
+drop table if exists dbw.Stage_table_Male
+Create table dbw.Stage_table_Male
+(
+	[Year] int,
+	[Name] varchar(50),
+	Frequency int 
+);
+bulk insert dbw.Stage_table_male
+from 'C:\Users\NikkiP\Downloads\ontario_top_baby_names_male_1917-2018_en_fr.csv'
+with 
+(
+	firstrow = 3,
+	format = 'CSV',
+	--fieldterminator = '||',
+	rowterminator = '\n'
+)
+ 
+
+
+drop table if exists dbw.Stage_table_female
+Create table dbw.Stage_table_female
+(
+	[Year] int,
+	[Name] varchar(50),
+	Frequency int 
+); 
+bulk insert dbw.Stage_table_female
+from 'C:\Users\NikkiP\Downloads\ontario_top_baby_names_female_1917-2018_en_fr.csv'
+with 
+(
+	firstrow = 3,
+	format = 'CSV',
+	--fieldterminator = '||',
+	rowterminator = '\n'
+)
+
+
+drop table if exists dbw.population_table
+Create table dbw.population_table
+(
+	[City] varchar(100),
+	[2016] varchar(20),
+	[2017] varchar(20),
+	[2018] varchar(20),
+	[2019] varchar(20),
+	[2020] varchar(20)
+	
+);
+bulk insert dbw.population_table
+from 'C:\Users\NikkiP\Downloads\population-eng.csv'
+with 
+(
+	firstrow = 12,
+	format = 'CSV',
+	fieldterminator = ',',
+	rowterminator = '\n',
+	lastrow =186
+)
+ 
+
+ 
+drop table if exists dbw.Stage_table_AVGLIFESPAN_table
+Create table dbw.Stage_table_AVGLIFESPAN_table
+(
+	[REF_DATE] varchar(100),
+	[GEO] varchar(200),
+	[DGUID] varchar(250),
+	Age_group varchar(200),
+	[SEX] varchar(250),
+	[CHARACTER] varchar(250),
+	[UOM] varchar(250)
+);
+bulk insert dbw.Stage_table_AVGLIFESPAN_table
+from 'C:\Users\NikkiP\Downloads\AVGLIFESPAN1.CSV'
+with 
+(
+	firstrow = 2,
+	fieldterminator = ',',
+	rowterminator = '0x0a',
+	lastrow = 27541
+)
+
+
+
+CREATE TABLE DBW.MALE_BABY_NAMES_REF
+(
+	[YEAR] INT NOT NULL,
+	[NAME] VARCHAR(20),
+	FREQUENCY INT
+
+);
+INSERT INTO DBW.MALE_BABY_NAMES_REF
+SELECT YEAR, NAME, FREQUENCY
+FROM DBW.Stage_table_male
+
+
+
+CREATE TABLE DBW.FEMALE_BABY_NAMES_REF
+(
+	[YEAR] INT NOT NULL,
+	[NAME] VARCHAR(20),
+	FREQUENCY INT
+
+);
+
+INSERT INTO DBW.FEMALE_BABY_NAMES_REF
+SELECT YEAR, NAME, FREQUENCY
+FROM DBW.Stage_table_female
+ 
+
+
+drop table dbw.avglifespan_ref
+CREATE TABLE DBW.AVGLIFESPAN_REF
+(
+	
+	[YEAR_FROM] SMALLINT NOT NULL,
+	[YEAR_TO] SMALLINT NOT NULL,
+	PROVNCE VARCHAR(130) not null,
+	age_group varchar(50) not null,
+	[GENDER] varCHAR(50) not null,
+	LIFE_EXPECTANCY varchar(50)
+	
+);
+
+INSERT INTO DBW.AVGLIFESPAN_REF
+SELECT REF_DATE =
+CASE REF_DATE
+	WHEN '2005/2007' THEN 2005
+	WHEN '2006/2008' THEN 2006
+	WHEN '2007/2009' THEN 2007
+	WHEN '2008/2010' THEN 2008
+	WHEN '2009/2011' THEN 2009
+	WHEN '2010/2012' THEN 2010
+	WHEN '2011/2013' THEN 2011
+	WHEN '2012/2014' THEN 2012
+	WHEN '2013/2015' THEN 2013
+	WHEN '2014/2016' THEN 2014
+	END,
+CATEGORY = 
+CASE REF_DATE
+	WHEN '2005/2007' THEN 2007
+	WHEN '2006/2008' THEN 2008
+	WHEN '2007/2009' THEN 2009
+	WHEN '2008/2010' THEN 2010
+	WHEN '2009/2011' THEN 2011
+	WHEN '2010/2012' THEN 2012
+	WHEN '2011/2013' THEN 2013
+	WHEN '2012/2014' THEN 2014
+	WHEN '2013/2015' THEN 2015
+	WHEN '2014/2016' THEN 2016
+END,
+GEO,
+AGE_GROUP,SEX, CHARACTER
+from DBW.STAGE_TABLE_AVGLIFESPAN_TABLE
+where geo like '%ontario%'
+and age_group like '%age 65%';
+ 
+
+
+drop table if exists dbw.population_ref
+CREATE TABLE DBW.POPULATION_REF
+(
+	[CITY] VARCHAR(150),
+	[YEAR_2016] int NOT NULL,
+	[YEAR_2017] int NOT NULL,
+	[YEAR_2018] int NOT NULL,
+	[YEAR_2019] int NOT NULL,
+	[YEAR_2020] int NOT NULL
+	
+);
+insert into dbw.population_ref
+select city, 
+
+convert (int, replace(YEAR_2016, ',','')) as Year_2016,
+
+convert (int, replace(YEAR_2017, ',',''))as Year_2017,
+
+convert (int, replace(YEAR_2018, ',',''))as Year_2018,
+ 
+convert (int, replace(YEAR_2019, ',',''))as Year_2019,
+
+convert (int, replace(YEAR_2020, ',',''))as Year_2020
+from dbw.stage_table_population_table
+where city like '%ontario%'; 
+ 
+ 
+
+
+
+
+
+
