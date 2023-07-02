@@ -80,20 +80,26 @@ select partition_id, object_id, partition_number, rows
 from sys.partitions
 where object_id = OBJECT_ID('PARTITIONTABLE')
  
- 
- 
- 
- 
-
 
 
 1.1). Data clustering 
 Data clustering - allows data in a table to be sorted in ascending order.  I used a clustered index on partitiontable which sorts the item_scan_timestamp column.
 Data clustering is used to improve efficiency in data warehousing
 *Part of partition table
- 
+
+
+CREATE CLUSTERED INDEX [INDX_SALES] ON PARTITIONTABLE
+(
+	[ITEM_SCAN_TIMESTAMP] ASC
+)
+WITH(PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, SORT_IN_TEMPDB = OFF,
+	DROP_EXISTING = OFF, ONLINE = OFF,
+	ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON)
+	ON[PARTITIONSCHEME](ITEM_SCAN_TIMESTAMP);
+
+
 2). Summary Table
-Summary Table - Summary table is used for storing data that is aggregated or join.  The data 				      that is stored in the summery table is data that is used often against a fact 				      table.  I used a summery table to store the(facts) in the fact table total units 				      sold, the dollar amount, sale volume, sales revenue, profit and the fiscal 				      quarter.  The summary table will improve the performance of the business 				     query.  
+Summary Table - Summary table is used for storing data that is aggregated or join.  The data that is stored in the summery table is data that is used often against a fact table.  I used a summery table to store the(facts) in the fact table total units sold, the dollar amount, sale volume, sales revenue, profit and the fiscal  quarter. The summary table will improve the performance of the business query.  
 DROP TABLE IF EXISTS SALES_SUMMARY_TABLE
 create table SALES_SUMMARY_TABLE
 (
@@ -113,20 +119,42 @@ ON(S.DATE_ID = D.DATEID)
 GROUP BY D.FISCAL_QUARTER;
  
 3). Referential integrity check
-Referential integrity check – Checks the accuracy of data within the relationship. Check constraint				         places data value restriction on the contents that is coming into the				         column.  I used check constraint to ensure that the data that is extracted				          from the ETL process is data only from Ontario.				         
+Referential integrity check – Checks the accuracy of data within the relationship. Check constraint places data value restriction on the contents that is coming into the column.  I used check constraint to ensure that the data that is extracted from the ETL process is data only from Ontario.				         
 Check constraint is used for performance and data quality in data warehousing.  
 Performance- reduce storage or space by not excepting useless data.
 Data quality – data meets the requirements.
- 
-4). Merge table
-Merge tables – merge table allows two tables to join together making one single table.  I merged the 			female and male baby names together so the query will be against one table instead of 			join both tables in the select statement. Merge tables increase query speed because no 			joining of table.
- 
 
+aLTER TABLE DBW.POPULATION_REF
+ADD CONSTRAINT CHECK_PROVINCE
+CHECK(CITY LIKE '%ONTARIO%')
+
+
+4). Merge table
+Merge tables – merge table allows two tables to join together making one single table.  I merged the female and male baby names together so the query will be against one table instead of join both tables in the select statement. Merge tables increase query speed because no joining of table.
+ 
+MERGE DBW.MALE_BABY_NAMES_REF AS TARGET
+USING (SELECT * FROM DBW.FEMALE_BABY_NAMES_REF) AS SOURCE
+ON(TARGET.GENDER = SOURCE.GENDER)
+WHEN NOT MATCHED THEN
+INSERT(YEAR, NAME, FREQUENCY, GENDER)
+VALUES(SOURCE.YEAR, SOURCE.NAME, SOURCE.FREQUNCY, SOURCE.GENDER);
+
+SELECT * INTO DBW.POPULAR_BABY_NAMES 
+FROM DBW.MALE_BABY_NAMES_REF
  
  
 5). Materialize views(oracle) or an index view (SQL Server)
 Materialize views(oracle) or an index view (SQL Server) is a database object that hold the results of a complex query which is physically stored in the database.  Materialized views can be periodically updated when changes occur from the base table, whereas, a table can not be update periodically.  I used a materialized view to store the employee’s current pay rate which includes a 5% raise.
 Materialize views is used to improve queries performance with joins or pre-calculate aggregating function like (SUM, COUNT, AVG) and store the results in the database.
+
+MERGE DBW.MALE_BABY_NAMES_REF AS TARGET
+USING (SELECT * FROM DBW.FEMALE_BABY_NAMES_REF AS SOURCE
+ON(TARGET.GENDER = SOURCE.GENDER)
+WHEN NOT MATCHED THEN
+INSERT(YEAR, NAME, FREQUENCY, GENDER)
+VALUES(SOURCE.YEAR, SOURCE.NAME, SOURCE.FREQUENCY, SOYRCE.GENDER);
+
+
 drop view DBW.UPATE_SALARY_VIEW
 CREATE VIEW DBW.UPATE_SALARY_VIEW
 with schemabinding 
